@@ -24,68 +24,90 @@ Adapun sistem GasGuard dirancang terdiri dari:
 
 ## Cara Kerja
     
-### 1. ESP32 — Jalankan Sistem Sensor
 
-Pastikan ESP32 sudah terhubung dengan dua sensor gas, buzzer, dan jaringan Wi-Fi. Program dapat dijalankan menggunakan Arduino IDE atau lingkungan PlatformIO yang telah dikonfigurasi.
+### 1. ESP32 — Sistem Sensor
+
+Pastikan ESP32 telah terhubung dengan dua sensor gas, buzzer, dan jaringan Wi-Fi. Program dapat dijalankan melalui Arduino IDE atau PlatformIO.
 
 **Konfigurasi pin perangkat keras:**
 
 | Komponen | Pin ESP32 | Fungsi |
 |---|---|---|
-| Sensor Gas 1 | GPIO 34 | Membaca kondisi gas di area tabung |
-| Sensor Gas 2 | GPIO 35 | Membaca kondisi gas di area dapur |
+| Sensor Gas 1 | GPIO 34 | Membaca data sensor di area tabung gas |
+| Sensor Gas 2 | GPIO 35 | Membaca data sensor di area dapur |
 | Buzzer | GPIO 25 | Memberikan alarm lokal |
 
-Setelah program diunggah ke ESP32, sistem akan menghubungkan perangkat ke Wi-Fi `Wokwi-GUEST` sesuai konfigurasi pada kode. Selanjutnya, ESP32 menghubungkan diri ke broker MQTT publik `broker.hivemq.com` menggunakan port `1883`.
+Pada saat dijalankan, ESP32 menginisialisasi Serial Monitor dengan baud rate `115200`, mengatur buzzer dalam kondisi mati, lalu mencoba terhubung ke Wi-Fi `Wokwi-GUEST`.
+
+Setelah itu, ESP32 mengatur koneksi MQTT menuju broker publik `broker.hivemq.com` melalui port `1883`. Apabila koneksi MQTT terputus, program akan mencoba menghubungkan kembali perangkat ke broker.
 
 ### 2. Pemrosesan Data Sensor
 
-Setelah terhubung, ESP32 membaca data analog dari kedua sensor secara berkala. Data tersebut diproses melalui beberapa tahapan berikut.
+Setelah sistem berjalan, ESP32 membaca data analog dari kedua sensor secara berulang. Data tersebut diproses melalui beberapa tahapan.
 
 ### A. Pembacaan Sensor
 
-ESP32 membaca nilai mentah dari sensor gas pada area tabung dan area dapur. Pembacaan dilakukan secara berulang untuk memperoleh data terbaru dari kedua titik pemantauan.
+ESP32 membaca nilai mentah menggunakan fungsi `analogRead()` pada GPIO 34 dan GPIO 35. Kedua nilai ini mewakili pembacaan sensor di area tabung gas dan area dapur.
 
 ### B. Moving Median Filter
 
-Data mentah diproses menggunakan Moving Median Filter dengan ukuran jendela lima data (`WINDOW_SIZE = 5`). Filter ini mengambil nilai tengah dari lima data yang tersimpan untuk membantu mengurangi gangguan pembacaan sensor.
+Data mentah dari setiap sensor diproses menggunakan Moving Median Filter dengan ukuran jendela lima data (`WINDOW_SIZE = 5`).
 
-Hasil pemrosesan menghasilkan dua nilai, yaitu `filtered1` untuk sensor tabung dan `filtered2` untuk sensor dapur.
+Prosesnya adalah:
+1. Memasukkan data terbaru ke dalam buffer sensor.
+2. Mengurutkan lima data yang tersimpan.
+3. Mengambil nilai tengah sebagai hasil filter.
+4. Mengulangi proses ketika data sensor berikutnya diterima.
+
+Hasilnya adalah `filtered1` untuk sensor tabung gas dan `filtered2` untuk sensor dapur. Penyaringan ini bertujuan mengurangi pengaruh gangguan atau perubahan pembacaan yang menyimpang.
 
 ### C. Evaluasi Tren dan Status
 
-Sistem membandingkan nilai hasil filter saat ini dengan nilai hasil filter sebelumnya untuk menghitung perubahan nilai atau tren sensor. Status ditentukan berdasarkan aturan berikut:
+Sistem menghitung tren perubahan dengan membandingkan nilai hasil filter saat ini terhadap nilai hasil filter pada iterasi sebelumnya.
 
-| Status | Kondisi pada program | Respons Buzzer |
+Rumus yang digunakan:
+
+```text
+trend1 = filtered1 - lastFiltered1
+trend2 = filtered2 - lastFiltered2
+```
+
+Setelah tren dihitung, nilai sebelumnya diperbarui menggunakan pembacaan terbaru. Sistem kemudian menentukan status dengan urutan pemeriksaan berikut:
+
+| Status | Kondisi pada kode | Respons Buzzer |
 |---|---|---|
-| `BAHAYA` | Salah satu nilai sensor lebih dari 2500 | Menyala |
-| `WASPADA` | Tren salah satu sensor naik lebih dari 150, jika kondisi BAHAYA tidak terpenuhi | Menyala |
-| `SIAGA` | Salah satu nilai sensor lebih dari 1200, jika kondisi sebelumnya tidak terpenuhi | Mati |
-| `AMAN` | Tidak memenuhi kondisi di atas | Mati |
+| `BAHAYA` | Salah satu nilai sensor lebih dari 2000 | Menyala |
+| `WASPADA` | Tidak memenuhi kondisi BAHAYA, tetapi salah satu nilai sensor lebih dari 1200 atau tren salah satu sensor lebih dari 150 | Mati |
+| `AMAN` | Tidak memenuhi kondisi BAHAYA maupun WASPADA | Mati |
 
-Urutan pemeriksaan status mengikuti logika pada program. Ambang batas tersebut masih perlu diuji dan dikalibrasi sesuai karakteristik sensor yang digunakan.
+**Urutan keputusan:** status `BAHAYA` diperiksa terlebih dahulu, kemudian `WASPADA`, dan terakhir `AMAN`. Dengan demikian, jika nilai sensor melewati 2000, status tetap `BAHAYA` meskipun kondisi WASPADA juga terpenuhi.
 
-### D. Perbandingan Nilai Sensor
+Ambang batas di atas merupakan parameter program dan perlu disesuaikan melalui kalibrasi serta pengujian sensor. Nilai ADC tidak langsung menunjukkan konsentrasi gas dalam ppm tanpa kalibrasi yang sesuai.
 
-Sistem membandingkan nilai sensor tabung dan dapur untuk mengetahui titik dengan nilai pembacaan lebih tinggi. Hasil perbandingan dapat berupa:
+### 3. Perbandingan Nilai Sensor
 
-- `TABUNG LEBIH TINGGI`
-- `DAPUR LEBIH TINGGI`
-- `KEDUA TITIK SAMA`
+Setelah data sensor difilter, sistem membandingkan nilai kedua titik pemantauan menggunakan fungsi `compareGasPoints()`.
 
-Informasi ini dicetak pada Serial Monitor sebagai informasi tambahan. Pada kode saat ini, hasil perbandingan belum dimasukkan ke payload MQTT sehingga belum otomatis diterima dashboard.
+Hasil perbandingan terdiri dari tiga kondisi:
 
-### 3. Pengiriman Data — MQTT
+- `TABUNG LEBIH TINGGI`: nilai `filtered1` lebih besar daripada `filtered2`.
+- `DAPUR LEBIH TINGGI`: nilai `filtered2` lebih besar daripada `filtered1`.
+- `KEDUA TITIK SAMA`: kedua nilai hasil filter sama.
 
-Setelah data diproses, ESP32 mengemas nilai kedua sensor dan status keamanan dalam format JSON, lalu mengirimkannya ke broker MQTT.
+Informasi perbandingan dicetak ke Serial Monitor untuk membantu pengamatan data sensor. Pada kode saat ini, informasi tersebut belum disertakan dalam payload MQTT sehingga belum dikirimkan sebagai field tersendiri ke dashboard HP.
+
+### 4. Pengiriman Data ke MQTT
+
+Setelah status keamanan ditentukan, ESP32 menyusun data hasil pemrosesan dalam format JSON. Data kemudian dikirimkan ke broker MQTT menggunakan fungsi `client.publish()`.
 
 **Konfigurasi MQTT:**
 
 - Broker: `broker.hivemq.com`
 - Port: `1883`
 - Topic: `gasguard/sensor/data`
+- Interval pengiriman: sekitar 2 detik, mengikuti jeda pada program utama.
 
-Contoh payload yang dikirimkan:
+Contoh payload JSON:
 
 ```json
 {
@@ -95,56 +117,74 @@ Contoh payload yang dikirimkan:
 }
 ```
 
-Nilai pada contoh hanya ilustrasi format data, bukan hasil pengukuran aktual.
-
 Keterangan:
-- `titik1` merupakan nilai sensor area tabung setelah difilter.
-- `titik2` merupakan nilai sensor area dapur setelah difilter.
-- `status` merupakan status keamanan yang ditentukan oleh ESP32.
+- `titik1`: nilai sensor area tabung setelah difilter.
+- `titik2`: nilai sensor area dapur setelah difilter.
+- `status`: status keamanan hasil evaluasi sistem.
 
-ESP32 mengirimkan data setiap dua detik. Perangkat penerima harus terhubung ke broker yang sama dan melakukan subscribe pada topic `gasguard/sensor/data`.
+Angka pada contoh hanya ilustrasi struktur pesan, bukan hasil pengukuran aktual.
 
-### 4. Dashboard HP — Pemantauan Data
+Jika pesan berhasil dipublikasikan, Serial Monitor menampilkan pesan `MQTT: Pesan berhasil dikirim ke broker`. Jika gagal, program menampilkan pesan kegagalan pengiriman.
 
-Dashboard HP berfungsi sebagai antarmuka untuk menampilkan data yang dikirimkan ESP32 melalui MQTT.
+### 5. Buzzer — Alarm Lokal
 
-Dashboard dapat dirancang untuk menampilkan:
-- Nilai sensor gas pada area tabung.
-- Nilai sensor gas pada area dapur.
-- Status keamanan sistem: AMAN, SIAGA, WASPADA, atau BAHAYA.
-- Grafik perubahan nilai sensor secara berkala.
-- Informasi titik sensor dengan nilai pembacaan lebih tinggi.
+Buzzer yang terhubung ke GPIO 25 dikendalikan langsung oleh fungsi `evaluateGasStatus()`.
 
-**Catatan implementasi:** Kode ESP32 yang tersedia baru menangani pembacaan sensor, pemrosesan data, buzzer, dan pengiriman MQTT. Dashboard HP belum dibuat dalam kode tersebut. Untuk menampilkan data, diperlukan aplikasi atau web dashboard yang terhubung ke broker MQTT dan berlangganan pada topic yang sesuai.
+Perilaku buzzer pada kode terbaru adalah:
 
-### 5. Coba Sistem GasGuard
+- **BAHAYA:** buzzer menyala (`HIGH`).
+- **WASPADA:** buzzer mati (`LOW`).
+- **AMAN:** buzzer mati (`LOW`).
 
-1. Jalankan simulasi Wokwi atau unggah program ke ESP32 fisik yang telah terhubung dengan sensor dan buzzer.
+Perlu diperhatikan bahwa status `WASPADA` pada versi kode ini hanya dikirim sebagai data MQTT dan ditampilkan di Serial Monitor; status tersebut tidak mengaktifkan buzzer.
+
+Buzzer merupakan alarm pendukung pada prototipe dan tidak menggantikan detektor kebocoran gas bersertifikasi.
+
+### 6. Dashboard HP — Pemantauan Data
+
+Dashboard HP direncanakan sebagai antarmuka untuk menerima dan menampilkan data yang dikirimkan ESP32 melalui MQTT.
+
+Dashboard dapat dikembangkan untuk menampilkan:
+- Nilai sensor di area tabung gas.
+- Nilai sensor di area dapur.
+- Status keamanan `AMAN`, `WASPADA`, atau `BAHAYA`.
+- Grafik perubahan nilai kedua sensor.
+- Informasi perbandingan nilai sensor.
+
+Untuk menerima data, dashboard harus terhubung ke broker MQTT yang sama dan melakukan subscribe pada topic `gasguard/sensor/data`. Dashboard kemudian perlu membaca field JSON `titik1`, `titik2`, dan `status`.
+
+**Status implementasi:** program ESP32 telah mencakup pembacaan sensor, Moving Median Filter, evaluasi tren dan status, kontrol buzzer, serta pengiriman MQTT. Dashboard HP belum tersedia dalam kode yang diberikan dan perlu dikembangkan secara terpisah.
+
+### 7. Cara Menguji Sistem
+
+1. Jalankan simulasi pada Wokwi atau unggah program ke perangkat ESP32 fisik.
 2. Buka Serial Monitor dengan baud rate `115200`.
-3. Pastikan ESP32 berhasil terhubung ke Wi-Fi dan broker MQTT.
-4. Amati nilai `T1 [Filtered]`, `T2 [Filtered]`, dan `Status` pada Serial Monitor.
-5. Uji perubahan pembacaan sensor menggunakan simulator atau prosedur pengujian yang aman dan sesuai spesifikasi sensor.
-6. Periksa apakah status berubah mengikuti aturan yang telah diprogram.
-7. Periksa respons buzzer saat status menjadi `BAHAYA` atau `WASPADA`.
-8. Setelah dashboard tersedia, hubungkan dashboard ke broker MQTT dan subscribe ke topic `gasguard/sensor/data` untuk melihat data yang diterima.
+3. Pastikan perangkat berhasil terhubung ke Wi-Fi dan broker MQTT.
+4. Amati nilai `T1 [Filtered]`, `T2 [Filtered]`, `Status`, dan `Perbandingan`.
+5. Uji perubahan pembacaan sensor melalui simulasi atau prosedur pengujian yang aman.
+6. Periksa apakah status berubah sesuai ambang batas yang ditentukan.
+7. Periksa apakah buzzer menyala ketika status `BAHAYA` dan mati ketika status `WASPADA` atau `AMAN`.
+8. Setelah dashboard dibuat, hubungkan dashboard ke broker MQTT dan pastikan data pada topic `gasguard/sensor/data` diterima dengan benar.
 
-Untuk pengujian awal, simulasi dapat digunakan untuk memeriksa logika program. Namun, simulasi tidak menggantikan kalibrasi dan pengujian menggunakan perangkat keras nyata.
+Proses pembacaan dan pemrosesan data diulang setiap dua detik melalui fungsi `loop()`. Namun, jika koneksi MQTT terputus, fungsi rekoneksi dapat menghentikan sementara pemrosesan sampai koneksi berhasil dibangun kembali.
 
-### 6. Kode Program
+### 8. Fungsi Utama dalam Kode
 
-Bagian-bagian utama kode GasGuard memiliki fungsi sebagai berikut:
+- `setup_wifi()` — Menghubungkan ESP32 ke jaringan Wi-Fi.
+- `reconnect()` — Membangun kembali koneksi MQTT jika terputus.
+- `getMedian()` — Mengurutkan data dan menentukan nilai median.
+- `calculateMovingMedian()` — Memperbarui buffer sensor dan menghitung hasil filter.
+- `evaluateGasStatus()` — Menghitung tren, menentukan status keamanan, dan mengontrol buzzer.
+- `compareGasPoints()` — Membandingkan nilai kedua sensor.
+- `setup()` — Menginisialisasi Serial Monitor, buzzer, Wi-Fi, MQTT, dan nilai awal buffer.
+- `loop()` — Membaca sensor, memfilter data, mengevaluasi status, membandingkan nilai, mengirimkan MQTT, dan mencetak hasil pemantauan.
 
-- `setup_wifi()` → Menghubungkan ESP32 ke jaringan Wi-Fi.
-- `reconnect()` → Menghubungkan kembali ESP32 ke broker MQTT ketika koneksi terputus.
-- `getMedian()` → Mengurutkan data dan mengambil nilai median.
-- `calculateMovingMedian()` → Memperbarui buffer dan menghitung hasil Moving Median Filter.
-- `evaluateGasStatus()` → Menghitung tren, menentukan status keamanan, dan mengontrol buzzer.
-- `compareGasPoints()` → Membandingkan nilai hasil filter dari kedua sensor.
-- `loop()` → Menjalankan pembacaan sensor, pemrosesan data, pengiriman MQTT, dan pencetakan hasil ke Serial Monitor secara berulang.
+### 9. Ringkasan Alur Kerja
 
-### 7. Ringkasan Alur Kerja
+**Pembacaan Sensor → Moving Median Filter → Evaluasi Tren dan Status → Perbandingan Nilai Sensor → Pengiriman Data MQTT → Dashboard HP**
 
-**Sensor Gas → ESP32 → Moving Median Filter → Evaluasi Tren dan Status → Kontrol Buzzer → Pengiriman MQTT → Dashboard HP**
+Buzzer bekerja sebagai keluaran alarm lokal berdasarkan status yang dihasilkan. Seluruh proses berjalan berulang selama program aktif dan koneksi yang dibutuhkan tersedia.
 
-GasGuard dirancang untuk memantau pembacaan gas dari dua titik, mengevaluasi kondisi berdasarkan aturan yang ditentukan, memberikan alarm lokal, dan mengirimkan data ke dashboard melalui MQTT. Pengembangan dashboard, kalibrasi sensor, dan pengujian keselamatan merupakan tahapan penting sebelum sistem digunakan pada lingkungan nyata.
+
+
 
