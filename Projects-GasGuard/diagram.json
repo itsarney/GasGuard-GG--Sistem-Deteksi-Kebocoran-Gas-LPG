@@ -1,0 +1,53 @@
+
+{
+  "version": 1,
+  "author": "GasGuard",
+  "editor": "wokwi",
+  "parts": [
+    {
+      "type": "board-esp32-devkit-c-v4",
+      "id": "esp",
+      "top": 0,
+      "left": 0,
+      "attrs": {}
+    },
+    {
+      "type": "wokwi-potentiometer",
+      "id": "potTabung",
+      "top": -80,
+      "left": 260,
+      "attrs": {
+        "value": "50"
+      }
+    },
+    {
+      "type": "wokwi-potentiometer",
+      "id": "potDapur",
+      "top": 100,
+      "left": 260,
+      "attrs": {
+        "value": "50"
+      }
+    },
+    {
+      "type": "wokwi-buzzer",
+      "id": "buzzer",
+      "top": 230,
+      "left": 260,
+      "attrs": {}
+    }
+  ],
+  "connections": [
+    ["potTabung:SIG", "esp:34", "green", []],
+    ["potTabung:VCC", "esp:3V3", "red", []],
+    ["potTabung:GND", "esp:GND.1", "black", []],
+
+    ["potDapur:SIG", "esp:35", "green", []],
+    ["potDapur:VCC", "esp:3V3", "red", []],
+    ["potDapur:GND", "esp:GND.1", "black", []],
+
+    ["buzzer:1", "esp:25", "green", []],
+    ["buzzer:2", "esp:GND.1", "black", []]
+  ],
+  "dependencies": {}
+}
