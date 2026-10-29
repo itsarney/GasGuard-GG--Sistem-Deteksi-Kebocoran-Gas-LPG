@@ -3,8 +3,8 @@
 #include <PubSubClient.h>
 
 // --- KONFIGURASI WIFI & MQTT ---
-const char* ssid = "Moriarty";         
-const char* password = "catchmeifyoucan"; 
+const char* ssid = "Wokwi-GUEST";
+const char* password = ""; 
 const char* mqtt_server = "broker.hivemq.com"; 
 
 WiFiClient espClient;
@@ -70,17 +70,27 @@ String evaluateGasStatus(float currentFiltered1, float currentFiltered2) {
 
 // Fungsi Koneksi WiFi
 void setup_wifi() {
-    delay(10);
     Serial.println();
-    Serial.print("Menghubungkan ke WiFi: ");
-    Serial.println(ssid);
+    Serial.println("Menghubungkan ke WiFi Wokwi...");
 
-    WiFi.begin(ssid, password);
-    while (WiFi.status() != WL_CONNECTED) {
+    WiFi.mode(WIFI_STA);
+    WiFi.begin("Wokwi-GUEST", "", 6);
+
+    int percobaan = 0;
+
+    while (WiFi.status() != WL_CONNECTED && percobaan < 30) {
         delay(500);
         Serial.print(".");
+        percobaan++;
     }
-    Serial.println("\nWiFi terhubung!");
+
+    if (WiFi.status() == WL_CONNECTED) {
+        Serial.println("\nWiFi terhubung!");
+        Serial.print("IP Address: ");
+        Serial.println(WiFi.localIP());
+    } else {
+        Serial.println("\nWiFi gagal terhubung.");
+    }
 }
 
 // Fungsi Rekoneksi MQTT
