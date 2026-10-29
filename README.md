@@ -6,7 +6,7 @@ Mencegah terjadinya kebocoran gas dengan pemantauan dua titik secara berkala dan
 ## Rancangan Sistem
 Adapun sistem GasGuard dirancang terdiri dari:
 <ol>
-  <li><<p>i> Edge Device:</i></p>
+  <li><p><i> Edge Device:</i></p>
     <ol>
     <li> <p>ESP32 sebagai "otak" perangkat yang membaca input sensor, memproses data, mengambil keputusan, dan mengirim data ke <i>cloud.</i></p> </li>
     <li> <p>HP Android sebagai perangkat yang meanmpilkan  informasi sensor dan meneruskan data sensor ke pengguna.</p></li>
