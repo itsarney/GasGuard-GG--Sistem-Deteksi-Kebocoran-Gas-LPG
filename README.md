@@ -130,7 +130,7 @@ Dashboard dapat dirancang untuk menampilkan:
 
 Untuk pengujian awal, simulasi dapat digunakan untuk memeriksa logika program. Namun, simulasi tidak menggantikan kalibrasi dan pengujian menggunakan perangkat keras nyata.
 
-### 6. Pelajari Kode Program
+### 6. Kode Program
 
 Bagian-bagian utama kode GasGuard memiliki fungsi sebagai berikut:
 
@@ -142,18 +142,9 @@ Bagian-bagian utama kode GasGuard memiliki fungsi sebagai berikut:
 - `compareGasPoints()` → Membandingkan nilai hasil filter dari kedua sensor.
 - `loop()` → Menjalankan pembacaan sensor, pemrosesan data, pengiriman MQTT, dan pencetakan hasil ke Serial Monitor secara berulang.
 
-### 7. Catatan Pengembangan
-
-- Dashboard HP perlu dibuat dan dihubungkan ke broker MQTT sebelum pemantauan melalui HP dapat dilakukan.
-- Broker MQTT publik tidak menyediakan privasi untuk topik yang digunakan. Hindari mengirimkan informasi sensitif dan gunakan broker dengan autentikasi serta koneksi terenkripsi untuk penerapan yang lebih serius.
-- Nilai sensor tidak otomatis menunjukkan konsentrasi gas dalam ppm tanpa kalibrasi yang sesuai.
-- Buzzer pada prototipe merupakan alarm pendukung, bukan pengganti detektor gas bersertifikasi.
-- Koneksi Wi-Fi dan MQTT perlu dipantau agar kegagalan komunikasi tidak disalahartikan sebagai kondisi AMAN.
-
-### 8. Ringkasan Alur Kerja
+### 7. Ringkasan Alur Kerja
 
 **Sensor Gas → ESP32 → Moving Median Filter → Evaluasi Tren dan Status → Kontrol Buzzer → Pengiriman MQTT → Dashboard HP**
 
 GasGuard dirancang untuk memantau pembacaan gas dari dua titik, mengevaluasi kondisi berdasarkan aturan yang ditentukan, memberikan alarm lokal, dan mengirimkan data ke dashboard melalui MQTT. Pengembangan dashboard, kalibrasi sensor, dan pengujian keselamatan merupakan tahapan penting sebelum sistem digunakan pada lingkungan nyata.
 
-> **Penting:** GasGuard merupakan prototipe pembelajaran IoT. Jangan mengandalkannya sebagai satu-satunya sistem keselamatan untuk mendeteksi kebocoran LPG.
