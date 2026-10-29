@@ -1,0 +1,544 @@
+
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#10251f">
+  <title>GasGuard | Monitoring LPG</title>
+
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f3f6f4;
+      --surface: #ffffff;
+      --ink: #17231f;
+      --muted: #65736d;
+      --line: #dce5e0;
+      --green: #167653;
+      --green-soft: #e5f5ec;
+      --yellow: #946200;
+      --yellow-soft: #fff3ce;
+      --red: #b42318;
+      --red-soft: #ffebe9;
+      --gray-soft: #e9eeeb;
+      --shadow: 0 12px 30px rgba(16, 37, 31, .06);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.45;
+    }
+
+    main {
+      width: min(760px, 100%);
+      margin: 0 auto;
+      padding: 22px 16px 32px;
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 11px;
+    }
+
+    .logo {
+      width: 44px;
+      height: 44px;
+      border-radius: 13px;
+      display: grid;
+      place-items: center;
+      background: #10251f;
+      color: white;
+      font-size: 22px;
+      flex: 0 0 auto;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(1.35rem, 5vw, 1.8rem);
+      letter-spacing: -.03em;
+    }
+
+    .subtitle {
+      margin: 3px 0 0;
+      color: var(--muted);
+      font-size: .9rem;
+    }
+
+    .connection {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      padding: 8px 10px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: var(--surface);
+      color: var(--muted);
+      font-size: .78rem;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #89958f;
+    }
+
+    .connection.connected {
+      color: var(--green);
+      background: var(--green-soft);
+      border-color: #b9e4cd;
+    }
+
+    .connection.connected .dot {
+      background: var(--green);
+    }
+
+    .connection.pending .dot {
+      background: var(--yellow);
+    }
+
+    .connection.disconnected {
+      color: var(--red);
+      background: var(--red-soft);
+      border-color: #ffc9c3;
+    }
+
+    .connection.disconnected .dot {
+      background: var(--red);
+    }
+
+    .section-label {
+      margin: 0 0 10px;
+      color: var(--muted);
+      font-size: .8rem;
+      font-weight: 800;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+
+    .sensor-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 17px;
+      box-shadow: var(--shadow);
+      min-width: 0;
+    }
+
+    .sensor-name {
+      margin: 0;
+      font-weight: 750;
+      font-size: .98rem;
+    }
+
+    .sensor-location {
+      margin: 3px 0 15px;
+      font-size: .82rem;
+      color: var(--muted);
+    }
+
+    .reading {
+      font-size: clamp(1.9rem, 8vw, 2.5rem);
+      font-weight: 800;
+      letter-spacing: -.045em;
+      line-height: 1.1;
+      overflow-wrap: anywhere;
+    }
+
+    .unit {
+      margin: 5px 0 13px;
+      color: var(--muted);
+      font-size: .8rem;
+    }
+
+    .status {
+      display: inline-flex;
+      border-radius: 8px;
+      padding: 5px 9px;
+      background: var(--gray-soft);
+      color: var(--muted);
+      font-size: .78rem;
+      font-weight: 800;
+    }
+
+    .status.aman {
+      background: var(--green-soft);
+      color: var(--green);
+    }
+
+    .status.siaga,
+    .status.waspada {
+      background: var(--yellow-soft);
+      color: var(--yellow);
+    }
+
+    .status.bahaya {
+      background: var(--red-soft);
+      color: var(--red);
+    }
+
+    .system-card {
+      margin-top: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .system-title {
+      margin: 0;
+      font-size: .95rem;
+    }
+
+    .system-status {
+      font-size: 1.05rem;
+    }
+
+    .details {
+      margin-top: 14px;
+      box-shadow: none;
+    }
+
+    .detail-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 9px 0;
+      border-bottom: 1px solid var(--line);
+      font-size: .86rem;
+    }
+
+    .detail-row:last-child {
+      border-bottom: 0;
+    }
+
+    .detail-row span:first-child {
+      color: var(--muted);
+    }
+
+    .detail-row span:last-child {
+      text-align: right;
+      overflow-wrap: anywhere;
+    }
+
+    .notice {
+      margin-top: 14px;
+      padding: 12px 14px;
+      border-radius: 12px;
+      color: var(--muted);
+      background: #eaf0ed;
+      font-size: .82rem;
+    }
+
+    .notice.error {
+      color: var(--red);
+      background: var(--red-soft);
+    }
+
+    footer {
+      text-align: center;
+      color: var(--muted);
+      font-size: .75rem;
+      margin-top: 20px;
+    }
+
+    @media (max-width: 430px) {
+      main {
+        padding: 17px 12px 24px;
+      }
+
+      header {
+        flex-direction: column;
+      }
+
+      .connection {
+        align-self: flex-start;
+      }
+
+      .sensor-grid {
+        gap: 9px;
+      }
+
+      .card {
+        padding: 13px;
+        border-radius: 15px;
+      }
+
+      .sensor-location {
+        min-height: 2.2em;
+      }
+
+      .system-card {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <main>
+    <header>
+      <div class="brand">
+        <div class="logo" aria-hidden="true">⌁</div>
+        <div>
+          <h1>GasGuard</h1>
+          <p class="subtitle">
+            Monitoring gas LPG · Dua titik sensor
+          </p>
+        </div>
+      </div>
+
+      <div id="connection" class="connection pending"
+           role="status" aria-live="polite">
+        <span class="dot" aria-hidden="true"></span>
+        <span id="connectionText">Menghubungkan MQTT...</span>
+      </div>
+    </header>
+
+    <p class="section-label">Pembacaan sensor</p>
+
+    <section class="sensor-grid" aria-label="Pembacaan sensor">
+      <article class="card">
+        <h2 class="sensor-name">Sensor Tabung</h2>
+        <p class="sensor-location">Titik 1</p>
+        <div id="value1" class="reading">—</div>
+        <p class="unit">Nilai ADC dari pesan terakhir</p>
+      </article>
+
+      <article class="card">
+        <h2 class="sensor-name">Sensor Dapur</h2>
+        <p class="sensor-location">Titik 2</p>
+        <div id="value2" class="reading">—</div>
+        <p class="unit">Nilai ADC dari pesan terakhir</p>
+      </article>
+    </section>
+
+    <section class="card system-card" aria-live="polite">
+      <div>
+        <p class="section-label" style="margin-bottom:5px">
+          Status sistem
+        </p>
+        <h2 id="systemStatus" class="system-title system-status">
+          MENUNGGU DATA
+        </h2>
+      </div>
+
+      <span id="systemBadge" class="status">Belum ada pesan</span>
+    </section>
+
+    <section class="card details" aria-label="Informasi koneksi">
+      <div class="detail-row">
+        <span>Topic MQTT</span>
+        <span id="topicText">gasguard/sensor/data</span>
+      </div>
+
+      <div class="detail-row">
+        <span>Pesan terakhir</span>
+        <span id="lastUpdated">Belum diterima</span>
+      </div>
+    </section>
+
+    <p id="notice" class="notice" role="status" aria-live="polite">
+      Menunggu koneksi ke broker dan pesan sensor pertama.
+    </p>
+
+    <footer>GasGuard · Prototipe pemantauan berbasis IoT</footer>
+  </main>
+
+  <!-- MQTT.js untuk koneksi MQTT melalui WebSocket -->
+  <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+
+  <script>
+    'use strict';
+
+    // Samakan broker dan topic dengan firmware ESP32.
+    const MQTT_URL = 'ws://broker.hivemq.com:8000/mqtt';
+    const MQTT_TOPIC = 'gasguard/sensor/data';
+
+    const VALID_STATUSES = [
+      'AMAN',
+      'SIAGA',
+      'WASPADA',
+      'BAHAYA'
+    ];
+
+    const connectionEl = document.getElementById('connection');
+    const connectionTextEl = document.getElementById('connectionText');
+    const value1El = document.getElementById('value1');
+    const value2El = document.getElementById('value2');
+    const systemStatusEl = document.getElementById('systemStatus');
+    const systemBadgeEl = document.getElementById('systemBadge');
+    const lastUpdatedEl = document.getElementById('lastUpdated');
+    const topicTextEl = document.getElementById('topicText');
+    const noticeEl = document.getElementById('notice');
+
+    topicTextEl.textContent = MQTT_TOPIC;
+
+    function setConnection(state, message) {
+      connectionEl.className = 'connection ' + state;
+      connectionTextEl.textContent = message;
+    }
+
+    function setStatusBadge(element, status) {
+      element.className = 'status';
+
+      const normalized = String(status || '')
+        .trim()
+        .toUpperCase();
+
+      if (VALID_STATUSES.includes(normalized)) {
+        element.classList.add(normalized.toLowerCase());
+      }
+
+      element.textContent = normalized || 'Tidak diketahui';
+    }
+
+    function validNumber(value) {
+      return value !== undefined &&
+        value !== null &&
+        value !== '' &&
+        Number.isFinite(Number(value));
+    }
+
+    function formatADC(value) {
+      return Math.round(Number(value)).toLocaleString('id-ID');
+    }
+
+    function handlePayload(rawMessage) {
+      let data;
+
+      try {
+        data = JSON.parse(rawMessage.toString());
+      } catch (_) {
+        noticeEl.className = 'notice error';
+        noticeEl.textContent =
+          'Pesan diterima, tetapi format JSON tidak valid.';
+        return;
+      }
+
+      if (
+        !data ||
+        typeof data !== 'object' ||
+        !validNumber(data.titik1) ||
+        !validNumber(data.titik2) ||
+        typeof data.status !== 'string'
+      ) {
+        noticeEl.className = 'notice error';
+        noticeEl.textContent =
+          'Payload tidak sesuai. Dibutuhkan field titik1, titik2, dan status.';
+        return;
+      }
+
+      const status = data.status.trim().toUpperCase();
+
+      value1El.textContent = formatADC(data.titik1);
+      value2El.textContent = formatADC(data.titik2);
+
+      systemStatusEl.textContent = status;
+      setStatusBadge(systemBadgeEl, status);
+
+      lastUpdatedEl.textContent =
+        new Date().toLocaleTimeString('id-ID', {
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit'
+        });
+
+      noticeEl.className = 'notice';
+      noticeEl.textContent =
+        'Data MQTT berhasil diterima. Nilai diperbarui dari pesan terbaru.';
+    }
+
+    if (!window.mqtt) {
+      setConnection('disconnected', 'Pustaka gagal dimuat');
+      noticeEl.className = 'notice error';
+      noticeEl.textContent =
+        'MQTT.js tidak berhasil dimuat. Periksa koneksi internet atau pemblokir CDN.';
+    } else {
+      const clientId =
+        'gasguard-web-' + Math.random().toString(16).slice(2, 10);
+
+      const client = mqtt.connect(MQTT_URL, {
+        clientId,
+        clean: true,
+        connectTimeout: 8000,
+        reconnectPeriod: 3000,
+        protocolVersion: 4
+      });
+
+      client.on('connect', function () {
+        setConnection('connected', 'Broker terhubung');
+
+        noticeEl.className = 'notice';
+        noticeEl.textContent =
+          'Terhubung ke broker. Menunggu pesan sensor.';
+
+        client.subscribe(MQTT_TOPIC, { qos: 0 }, function (error) {
+          if (error) {
+            noticeEl.className = 'notice error';
+            noticeEl.textContent =
+              'Koneksi tersedia, tetapi gagal berlangganan topic MQTT.';
+          } else {
+            noticeEl.className = 'notice';
+            noticeEl.textContent =
+              'Berlangganan topic berhasil. Menunggu data sensor.';
+          }
+        });
+      });
+
+      client.on('reconnect', function () {
+        setConnection('pending', 'Menyambungkan ulang...');
+      });
+
+      client.on('offline', function () {
+        setConnection('disconnected', 'Broker offline');
+        noticeEl.className = 'notice error';
+        noticeEl.textContent =
+          'Koneksi MQTT terputus. Dashboard sedang mencoba menyambung kembali.';
+      });
+
+      client.on('close', function () {
+        setConnection('disconnected', 'Terputus');
+      });
+
+      client.on('error', function () {
+        setConnection('disconnected', 'Koneksi bermasalah');
+      });
+
+      client.on('message', function (topic, message) {
+        if (topic === MQTT_TOPIC) {
+          handlePayload(message);
+        }
+      });
+    }
+  </script>
+</body>
+</html>
