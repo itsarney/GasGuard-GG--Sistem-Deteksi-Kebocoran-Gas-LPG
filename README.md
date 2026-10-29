@@ -19,10 +19,12 @@ Adapun sistem GasGuard dirancang terdiri dari:
   <li> <p><i>Cloud</i> sebagai penerima dan penerus data sensor.</p></li>
 </ol>
 <p>Simulasi Sistem GasGuard menggunakan Wokwi dan PlatformIO. Pada simulasi, potensiometer digunakan sebagai pengganti nilai keluaran sensor gas.</p>
+    
 --
+
 ## Cara Kerja
     
-## 1. ESP32 — Jalankan Sistem Sensor
+### 1. ESP32 — Jalankan Sistem Sensor
 
 Pastikan ESP32 sudah terhubung dengan dua sensor gas, buzzer, dan jaringan Wi-Fi. Program dapat dijalankan menggunakan Arduino IDE atau lingkungan PlatformIO yang telah dikonfigurasi.
 
@@ -36,7 +38,7 @@ Pastikan ESP32 sudah terhubung dengan dua sensor gas, buzzer, dan jaringan Wi-Fi
 
 Setelah program diunggah ke ESP32, sistem akan menghubungkan perangkat ke Wi-Fi `Wokwi-GUEST` sesuai konfigurasi pada kode. Selanjutnya, ESP32 menghubungkan diri ke broker MQTT publik `broker.hivemq.com` menggunakan port `1883`.
 
-## 2. Pemrosesan Data Sensor
+### 2. Pemrosesan Data Sensor
 
 Setelah terhubung, ESP32 membaca data analog dari kedua sensor secara berkala. Data tersebut diproses melalui beberapa tahapan berikut.
 
@@ -73,7 +75,7 @@ Sistem membandingkan nilai sensor tabung dan dapur untuk mengetahui titik dengan
 
 Informasi ini dicetak pada Serial Monitor sebagai informasi tambahan. Pada kode saat ini, hasil perbandingan belum dimasukkan ke payload MQTT sehingga belum otomatis diterima dashboard.
 
-## 3. Pengiriman Data — MQTT
+### 3. Pengiriman Data — MQTT
 
 Setelah data diproses, ESP32 mengemas nilai kedua sensor dan status keamanan dalam format JSON, lalu mengirimkannya ke broker MQTT.
 
@@ -102,7 +104,7 @@ Keterangan:
 
 ESP32 mengirimkan data setiap dua detik. Perangkat penerima harus terhubung ke broker yang sama dan melakukan subscribe pada topic `gasguard/sensor/data`.
 
-## 4. Dashboard HP — Pemantauan Data
+### 4. Dashboard HP — Pemantauan Data
 
 Dashboard HP berfungsi sebagai antarmuka untuk menampilkan data yang dikirimkan ESP32 melalui MQTT.
 
@@ -115,7 +117,7 @@ Dashboard dapat dirancang untuk menampilkan:
 
 **Catatan implementasi:** Kode ESP32 yang tersedia baru menangani pembacaan sensor, pemrosesan data, buzzer, dan pengiriman MQTT. Dashboard HP belum dibuat dalam kode tersebut. Untuk menampilkan data, diperlukan aplikasi atau web dashboard yang terhubung ke broker MQTT dan berlangganan pada topic yang sesuai.
 
-## 5. Coba Sistem GasGuard
+### 5. Coba Sistem GasGuard
 
 1. Jalankan simulasi Wokwi atau unggah program ke ESP32 fisik yang telah terhubung dengan sensor dan buzzer.
 2. Buka Serial Monitor dengan baud rate `115200`.
@@ -128,7 +130,7 @@ Dashboard dapat dirancang untuk menampilkan:
 
 Untuk pengujian awal, simulasi dapat digunakan untuk memeriksa logika program. Namun, simulasi tidak menggantikan kalibrasi dan pengujian menggunakan perangkat keras nyata.
 
-## 6. Pelajari Kode Program
+### 6. Pelajari Kode Program
 
 Bagian-bagian utama kode GasGuard memiliki fungsi sebagai berikut:
 
@@ -140,7 +142,7 @@ Bagian-bagian utama kode GasGuard memiliki fungsi sebagai berikut:
 - `compareGasPoints()` → Membandingkan nilai hasil filter dari kedua sensor.
 - `loop()` → Menjalankan pembacaan sensor, pemrosesan data, pengiriman MQTT, dan pencetakan hasil ke Serial Monitor secara berulang.
 
-## 7. Catatan Pengembangan
+### 7. Catatan Pengembangan
 
 - Dashboard HP perlu dibuat dan dihubungkan ke broker MQTT sebelum pemantauan melalui HP dapat dilakukan.
 - Broker MQTT publik tidak menyediakan privasi untuk topik yang digunakan. Hindari mengirimkan informasi sensitif dan gunakan broker dengan autentikasi serta koneksi terenkripsi untuk penerapan yang lebih serius.
@@ -148,7 +150,7 @@ Bagian-bagian utama kode GasGuard memiliki fungsi sebagai berikut:
 - Buzzer pada prototipe merupakan alarm pendukung, bukan pengganti detektor gas bersertifikasi.
 - Koneksi Wi-Fi dan MQTT perlu dipantau agar kegagalan komunikasi tidak disalahartikan sebagai kondisi AMAN.
 
-## 8. Ringkasan Alur Kerja
+### 8. Ringkasan Alur Kerja
 
 **Sensor Gas → ESP32 → Moving Median Filter → Evaluasi Tren dan Status → Kontrol Buzzer → Pengiriman MQTT → Dashboard HP**
 
