@@ -59,20 +59,25 @@ String compareGasPoints(float titik1, float titik2) {
 String evaluateGasStatus(float currentFiltered1, float currentFiltered2) {
     float trend1 = currentFiltered1 - lastFiltered1;
     float trend2 = currentFiltered2 - lastFiltered2;
+
     lastFiltered1 = currentFiltered1;
     lastFiltered2 = currentFiltered2;
 
-    // Logika Pengambilan Keputusan & Kontrol Buzzer
-    if (currentFiltered1 > 2500 || currentFiltered2 > 2500) {
-        digitalWrite(BUZZER_PIN, HIGH); // Nyalakan Buzzer jika Bahaya
+    // Kondisi BAHAYA: salah satu nilai ADC > 2000
+    if (currentFiltered1 > 2000 || currentFiltered2 > 2000) {
+        digitalWrite(BUZZER_PIN, HIGH);
         return "BAHAYA";
-    } else if (trend1 > 150 || trend2 > 150) {
-        digitalWrite(BUZZER_PIN, HIGH); // Nyalakan Buzzer jika Tren Cepat Naik
-        return "WASPADA";
-    } else if (currentFiltered1 > 1200 || currentFiltered2 > 1200) {
+    }
+    // Kondisi WASPADA: nilai > 1200 atau tren naik cepat
+    else if (currentFiltered1 > 1200 ||
+             currentFiltered2 > 1200 ||
+             trend1 > 150 ||
+             trend2 > 150) {
         digitalWrite(BUZZER_PIN, LOW);
-        return "SIAGA";
-    } else {
+        return "WASPADA";
+    }
+    // Kondisi AMAN
+    else {
         digitalWrite(BUZZER_PIN, LOW);
         return "AMAN";
     }
