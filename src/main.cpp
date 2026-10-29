@@ -45,6 +45,16 @@ float calculateMovingMedian(float newValue, float buffer[], int *head, int n) {
     return getMedian(buffer, n);
 }
 
+String compareGasPoints(float titik1, float titik2) {
+    if (titik1 > titik2) {
+        return "TABUNG LEBIH TINGGI";
+    } else if (titik2 > titik1) {
+        return "DAPUR LEBIH TINGGI";
+    } else {
+        return "KEDUA TITIK SAMA";
+    }
+}
+
 // --- ALGORITMA EVALUASI STATUS & KEPUTUSAN ---
 String evaluateGasStatus(float currentFiltered1, float currentFiltered2) {
     float trend1 = currentFiltered1 - lastFiltered1;
@@ -121,9 +131,17 @@ void setup() {
     setup_wifi();
     client.setServer(mqtt_server, 1883);
 
-    for(int i = 0; i < WINDOW_SIZE; i++) {
-        buffer1[i] = 0; buffer2[i] = 0;
-    }
+    float nilaiAwal1 = analogRead(34);
+    float nilaiAwal2 = analogRead(35);
+
+    for (int i = 0; i < WINDOW_SIZE; i++) {
+        buffer1[i] = nilaiAwal1;
+        buffer2[i] = nilaiAwal2;
+}
+
+    lastFiltered1 = nilaiAwal1;
+    lastFiltered2 = nilaiAwal2;
+    
     Serial.println("=== GasGuard: Branch 2 (Moving Median & MQTT) Loaded ===");
 }
 
@@ -144,6 +162,9 @@ void loop() {
     // Data Processing 2: Evaluasi Tren & Status Sistem
     String status = evaluateGasStatus(filtered1, filtered2);
 
+    // Membandingkan nilai gas di Titik 1 dan Titik 2
+    String perbandingan = compareGasPoints(filtered1, filtered2);
+
     // Format payload JSON untuk dikirim via MQTT
     String payload = "{";
     payload += "\"titik1\":" + String(filtered1) + ",";
@@ -152,12 +173,24 @@ void loop() {
     payload += "}";
 
     // Publikasikan data ke topik MQTT
-    client.publish("gasguard/sensor/data", payload.c_str());
+    bool berhasil = client.publish("gasguard/sensor/data", payload.c_str());
+
+    if (berhasil) {
+        Serial.println("MQTT: Pesan berhasil dikirim ke broker");
+    } else {
+        Serial.println("MQTT: Pesan gagal dikirim");
+    }
 
     // Cetak ke Serial Monitor untuk memantau hasil
-    Serial.print("T1 [Filtered]: "); Serial.print(filtered1);
-    Serial.print(" | T2 [Filtered]: "); Serial.print(filtered2);
-    Serial.print(" | Status: "); Serial.println(status);
+    Serial.print("T1 [Filtered]: ");
+    Serial.print(filtered1);
+    Serial.print(" | T2 [Filtered]: ");
+    Serial.print(filtered2);
+    Serial.print(" | Status: ");
+    Serial.print(status);
+    Serial.print(" | Perbandingan: ");
+    Serial.println(perbandingan);
+
 
     delay(2000);
 }
