@@ -1,3 +1,4 @@
+
 <!doctype html>
 <html lang="id">
 <head>
@@ -51,8 +52,8 @@
     }
 
     .brand {
-  display: block;
-  }
+      display: block;
+    }
 
     h1 {
       margin: 0;
@@ -177,7 +178,6 @@
       color: var(--green);
     }
 
-    .status.siaga,
     .status.waspada {
       background: var(--yellow-soft);
       color: var(--yellow);
@@ -186,6 +186,21 @@
     .status.bahaya {
       background: var(--red-soft);
       color: var(--red);
+    }
+
+    .status.alarm-active {
+      background: var(--red-soft);
+      color: var(--red);
+    }
+
+    .status.alarm-inactive {
+      background: var(--green-soft);
+      color: var(--green);
+    }
+
+    .status.alarm-unknown {
+      background: var(--gray-soft);
+      color: var(--muted);
     }
 
     .system-card {
@@ -203,6 +218,13 @@
 
     .system-status {
       font-size: 1.05rem;
+      overflow-wrap: anywhere;
+    }
+
+    .alarm-description {
+      margin: 5px 0 0;
+      color: var(--muted);
+      font-size: .82rem;
     }
 
     .details {
@@ -292,16 +314,16 @@
   <main>
     <header>
       <div class="brand">
-        <div>
-          <h1>GasGuard</h1>
-          <p class="subtitle">
-            Monitoring gas LPG · Dua titik sensor
-          </p>
-        </div>
+        <h1>GasGuard</h1>
+        <p class="subtitle">
+          Monitoring gas LPG · Dua titik sensor
+        </p>
       </div>
 
-      <div id="connection" class="connection pending"
-           role="status" aria-live="polite">
+      <div id="connection"
+           class="connection pending"
+           role="status"
+           aria-live="polite">
         <span class="dot" aria-hidden="true"></span>
         <span id="connectionText">Menghubungkan MQTT...</span>
       </div>
@@ -325,19 +347,45 @@
       </article>
     </section>
 
+    <!-- Status sistem dari pesan MQTT -->
     <section class="card system-card" aria-live="polite">
       <div>
         <p class="section-label" style="margin-bottom:5px">
           Status sistem
         </p>
+
         <h2 id="systemStatus" class="system-title system-status">
           MENUNGGU DATA
         </h2>
       </div>
 
-      <span id="systemBadge" class="status">Belum ada pesan</span>
+      <span id="systemBadge" class="status">
+        Belum ada pesan
+      </span>
     </section>
 
+    <!-- Tambahan: indikator perintah alarm -->
+    <section class="card system-card" aria-live="polite">
+      <div>
+        <p class="section-label" style="margin-bottom:5px">
+          Indikator Alarm
+        </p>
+
+        <h2 id="alarmStatus" class="system-title system-status">
+          MENUNGGU DATA
+        </h2>
+
+        <p id="alarmDescription" class="alarm-description">
+          Menunggu status dari ESP32 melalui MQTT.
+        </p>
+      </div>
+
+      <span id="alarmBadge" class="status alarm-unknown">
+        Belum ada data
+      </span>
+    </section>
+
+    <!-- Informasi MQTT yang sudah ada -->
     <section class="card details" aria-label="Informasi koneksi">
       <div class="detail-row">
         <span>Topic MQTT</span>
@@ -354,7 +402,9 @@
       Menunggu koneksi ke broker dan pesan sensor pertama.
     </p>
 
-    <footer>GasGuard · Prototipe pemantauan berbasis IoT</footer>
+    <footer>
+      GasGuard · Prototipe pemantauan berbasis IoT
+    </footer>
   </main>
 
   <!-- MQTT.js untuk koneksi MQTT melalui WebSocket -->
@@ -363,7 +413,7 @@
   <script>
     'use strict';
 
-    // Samakan broker dan topic dengan firmware ESP32.
+    // Konfigurasi broker dan topic sesuai firmware ESP32.
     const MQTT_URL = 'ws://broker.hivemq.com:8000/mqtt';
     const MQTT_TOPIC = 'gasguard/sensor/data';
 
@@ -375,13 +425,23 @@
 
     const connectionEl = document.getElementById('connection');
     const connectionTextEl = document.getElementById('connectionText');
+
     const value1El = document.getElementById('value1');
     const value2El = document.getElementById('value2');
+
     const systemStatusEl = document.getElementById('systemStatus');
     const systemBadgeEl = document.getElementById('systemBadge');
+
+    const alarmStatusEl = document.getElementById('alarmStatus');
+    const alarmDescriptionEl = document.getElementById('alarmDescription');
+    const alarmBadgeEl = document.getElementById('alarmBadge');
+
     const lastUpdatedEl = document.getElementById('lastUpdated');
     const topicTextEl = document.getElementById('topicText');
     const noticeEl = document.getElementById('notice');
+
+    let lastKnownStatus = null;
+    let mqttConnected = false;
 
     topicTextEl.textContent = MQTT_TOPIC;
 
@@ -415,6 +475,56 @@
       return Math.round(Number(value)).toLocaleString('id-ID');
     }
 
+    // Indikator ini mengikuti perintah yang tersirat dari status firmware.
+    // Indikator bukan pembacaan fisik buzzer.
+    function updateAlarmIndicator(status) {
+      if (status === 'BAHAYA') {
+        alarmStatusEl.textContent = 'PERINTAH ALARM AKTIF';
+
+        alarmBadgeEl.className = 'status alarm-active';
+        alarmBadgeEl.textContent = 'BUZZER DIPERINTAHKAN AKTIF';
+
+        alarmDescriptionEl.textContent =
+          'Firmware memerintahkan buzzer menyala karena status BAHAYA.';
+
+      } else if (status === 'AMAN' || status === 'WASPADA') {
+        alarmStatusEl.textContent = 'PERINTAH ALARM TIDAK AKTIF';
+
+        alarmBadgeEl.className = 'status alarm-inactive';
+        alarmBadgeEl.textContent = 'BUZZER DIPERINTAHKAN MATI';
+
+        alarmDescriptionEl.textContent =
+          'Firmware memerintahkan buzzer mati pada status ' + status + '.';
+
+      } else {
+        alarmStatusEl.textContent = 'STATUS ALARM TIDAK DIKETAHUI';
+
+        alarmBadgeEl.className = 'status alarm-unknown';
+        alarmBadgeEl.textContent = 'Tidak diketahui';
+
+        alarmDescriptionEl.textContent =
+          'Status MQTT tidak dikenali.';
+      }
+    }
+
+    // Jika MQTT terputus, jelaskan bahwa indikator hanya berdasarkan
+    // status terakhir yang berhasil diterima.
+    function markAlarmStatusStale() {
+      if (lastKnownStatus !== null) {
+        alarmDescriptionEl.textContent =
+          'Koneksi MQTT terputus. Indikator berdasarkan pesan terakhir (' +
+          lastKnownStatus +
+          '), bukan status terkini.';
+      } else {
+        alarmStatusEl.textContent = 'MENUNGGU DATA';
+        alarmBadgeEl.className = 'status alarm-unknown';
+        alarmBadgeEl.textContent = 'Belum ada data';
+
+        alarmDescriptionEl.textContent =
+          'Belum ada status dari ESP32 yang diterima.';
+      }
+    }
+
     function handlePayload(rawMessage) {
       let data;
 
@@ -442,12 +552,26 @@
 
       const status = data.status.trim().toUpperCase();
 
+      if (!VALID_STATUSES.includes(status)) {
+        noticeEl.className = 'notice error';
+        noticeEl.textContent =
+          'Status pada payload tidak dikenali: ' + status;
+        return;
+      }
+
+      // Perbarui pembacaan sensor.
       value1El.textContent = formatADC(data.titik1);
       value2El.textContent = formatADC(data.titik2);
 
+      // Perbarui status sistem.
       systemStatusEl.textContent = status;
       setStatusBadge(systemBadgeEl, status);
 
+      // Perbarui indikator perintah buzzer.
+      lastKnownStatus = status;
+      updateAlarmIndicator(status);
+
+      // Perbarui waktu penerimaan pesan.
       lastUpdatedEl.textContent =
         new Date().toLocaleTimeString('id-ID', {
           hour: '2-digit',
@@ -462,15 +586,17 @@
 
     if (!window.mqtt) {
       setConnection('disconnected', 'Pustaka gagal dimuat');
+
       noticeEl.className = 'notice error';
       noticeEl.textContent =
         'MQTT.js tidak berhasil dimuat. Periksa koneksi internet atau pemblokir CDN.';
+
     } else {
       const clientId =
         'gasguard-web-' + Math.random().toString(16).slice(2, 10);
 
       const client = mqtt.connect(MQTT_URL, {
-        clientId,
+        clientId: clientId,
         clean: true,
         connectTimeout: 8000,
         reconnectPeriod: 3000,
@@ -478,6 +604,7 @@
       });
 
       client.on('connect', function () {
+        mqttConnected = true;
         setConnection('connected', 'Broker terhubung');
 
         noticeEl.className = 'notice';
@@ -498,22 +625,31 @@
       });
 
       client.on('reconnect', function () {
+        mqttConnected = false;
         setConnection('pending', 'Menyambungkan ulang...');
+        markAlarmStatusStale();
       });
 
       client.on('offline', function () {
+        mqttConnected = false;
         setConnection('disconnected', 'Broker offline');
+        markAlarmStatusStale();
+
         noticeEl.className = 'notice error';
         noticeEl.textContent =
           'Koneksi MQTT terputus. Dashboard sedang mencoba menyambung kembali.';
       });
 
       client.on('close', function () {
+        mqttConnected = false;
         setConnection('disconnected', 'Terputus');
+        markAlarmStatusStale();
       });
 
       client.on('error', function () {
+        mqttConnected = false;
         setConnection('disconnected', 'Koneksi bermasalah');
+        markAlarmStatusStale();
       });
 
       client.on('message', function (topic, message) {
