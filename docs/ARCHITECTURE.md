@@ -10,8 +10,9 @@ Data yang telah diproses dikirim melalui MQTT ke broker publik HiveMQ, kemudian 
 
 
 ```mermaid
-flowchart TD
+flowchart LR
     subgraph W["Edge Device 1 - ESP32 di Wokwi"]
+        direction LR
         A["Input Sensor Tabung"]
         B["Input Sensor Dapur"]
         C["Pembacaan ADC"]
@@ -26,19 +27,11 @@ flowchart TD
         E -->|"Jika status BAHAYA"| F
     end
 
-    E -->|"Publish JSON melalui MQTT TCP"| G
+    E -->|"Publish JSON melalui MQTT TCP"| G["HiveMQ Public MQTT Broker"]
 
-    subgraph CLOUD["Cloud"]
-        G["HiveMQ Public MQTT Broker"]
-    end
+    G -->|"MQTT over WebSocket"| I["Dashboard Web di Browser HP"]
 
-    G -->|"Pesan MQTT melalui WebSocket"| I
-
-    subgraph LOCAL["Jaringan Lokal"]
-        J["Laptop: menjalankan Live Server"]
-        I["Dashboard Web di Browser HP"]
-        J -.->|"Diakses melalui Wi-Fi / hotspot yang sama"| I
-    end
+    J["Laptop: menjalankan Live Server"] -.->|"Wi-Fi / hotspot yang sama"| I
 ```
 
 
