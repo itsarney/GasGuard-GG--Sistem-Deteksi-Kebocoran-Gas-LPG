@@ -77,18 +77,6 @@ Konfigurasi yang digunakan:
 - Subscriber: Dashboard web
 - Field JSON: `titik1`, `titik2`, dan `status`
 
-Contoh format payload:
-
-```json
-{
-  "titik1": 1350,
-  "titik2": 980,
-  "status": "SIAGA"
-}
-```
-
-Nilai tersebut hanya contoh format pesan, bukan hasil pengujian aktual.
-
 ## 6. Jaringan dan Edge Device
 
 ESP32 dijalankan melalui simulasi Wokwi, sedangkan dashboard dibuka pada HP Android menggunakan browser.
