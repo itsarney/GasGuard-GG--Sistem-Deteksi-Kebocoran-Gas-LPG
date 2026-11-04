@@ -249,6 +249,9 @@ void kirimDataMQTT(const char* statusSistem) {
     payload += "\"status\":\"" + String(kondisiGas(nilaiFilterDapur)) + "\",";
     payload += "\"tren\":" + String(trenDapur, 1);
     payload += "},";
+    payload += "\"selisih_sensor\":" +
+    String(abs(nilaiFilterTabung - nilaiFilterDapur), 1) + ",";
+
     payload += "\"perbandingan\":\"" + String(bandingkanTitik()) + "\",";
     payload += "\"status_sistem\":\"" + String(statusSistem) + "\",";
     payload += "\"alarm\":" + String(
