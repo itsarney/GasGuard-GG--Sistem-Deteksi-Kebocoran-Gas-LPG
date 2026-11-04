@@ -1,0 +1,29 @@
+Dataset: feature_engineering.csv
+Training rows: 334
+Testing rows: 289
+Test scenario: S04
+Accuracy: 0.7993 (79.93%)
+
+              precision    recall  f1-score   support
+
+        AMAN      0.944     0.757     0.840       111
+     WASPADA      0.614     0.833     0.707        84
+      BAHAYA      0.895     0.819     0.856        94
+
+    accuracy                          0.799       289
+   macro avg      0.818     0.803     0.801       289
+weighted avg      0.832     0.799     0.806       289
+
+Confusion matrix (baris = aktual, kolom = prediksi):
+                Prediksi_AMAN  Prediksi_WASPADA  Prediksi_BAHAYA
+Aktual_AMAN                84                27                0
+Aktual_WASPADA              5                70                9
+Aktual_BAHAYA               0                17               77
+
+Feature importance:
+         fitur  importance
+ filter_tabung    0.580325
+selisih_sensor    0.243815
+  filter_dapur    0.115254
+    tren_dapur    0.039553
+   tren_tabung    0.021053
