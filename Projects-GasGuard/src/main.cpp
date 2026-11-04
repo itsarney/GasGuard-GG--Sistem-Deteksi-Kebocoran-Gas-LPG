@@ -9,7 +9,7 @@ const int SENSOR_DAPUR = 35;
 const int BUZZER_PIN = 25;
 
 // Ambang ADC awal untuk pengujian
-const int BATAS_NORMAL = 1200;
+const int BATAS_AMAN = 1200;
 const int BATAS_BAHAYA = 2000;
 
 // Data mentah
@@ -24,8 +24,8 @@ void bacaSensor() {
 
 // Menampilkan status kondisi gas berdasarkan nilai ADC
 const char* kondisiGas(int nilai) {
-    if (nilai <= BATAS_NORMAL) {
-        return "NORMAL";
+    if (nilai <= BATAS_AMAN) {
+        return "AMAN";
     } else if (nilai <= BATAS_BAHAYA) {
         return "WASPADA";
     } else {
@@ -55,9 +55,11 @@ void statusAlarm() {
 
     if (bahaya) {
         tone(BUZZER_PIN, 2000);
+        digitalWrite(BUZZER_PIN, HIGH);
         Serial.println("!!! BAHAYA - ALARM GASGUARD AKTIF !!!");
     } else {
         noTone(BUZZER_PIN);
+        digitalWrite(BUZZER_PIN, LOW);
         Serial.println("--- Alarm lokal tidak aktif ---");
     }
 }
