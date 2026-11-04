@@ -9,7 +9,7 @@ const char* WIFI_SSID = "Wokwi-GUEST";
 const char* WIFI_PASSWORD = "";
 const char* MQTT_SERVER = "broker.hivemq.com";
 const int MQTT_PORT = 1883;
-const char* MQTT_TOPIC = "gasguard/sensor/data";
+const char* MQTT_TOPIC = "gasguard/kelompok8/device01/sensor/data";
 
 // identitas skenario dataset untuk membedakan dataset
 const char* SCENARIO_ID = "S00"; //test
