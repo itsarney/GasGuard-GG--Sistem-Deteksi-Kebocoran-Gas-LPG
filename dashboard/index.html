@@ -1,4 +1,3 @@
-
 <!doctype html>
 <html lang="id">
 <head>
@@ -385,6 +384,27 @@
       </span>
     </section>
 
+    <!-- HASIL KLASIFIKASI AI -->
+    <section class="card system-card" aria-live="polite">
+        <div>
+            <p class="section-label" style="margin-bottom:5px">
+                Hasil Klasifikasi AI
+            </p>
+
+            <h2 id="aiPrediction" class="system-title system-status">
+                MENUNGGU PREDIKSI
+            </h2>
+
+            <p id="aiDescription" class="alarm-description">
+                Menunggu hasil prediksi Decision Tree.
+            </p>
+        </div>
+
+        <span id="aiBadge" class="status">
+            Belum ada prediksi
+        </span>
+    </section>
+
     <!-- Informasi MQTT yang sudah ada -->
     <section class="card details" aria-label="Informasi koneksi">
       <div class="detail-row">
@@ -415,7 +435,8 @@
 
     // Konfigurasi broker dan topic sesuai firmware ESP32.
     const MQTT_URL = 'ws://broker.hivemq.com:8000/mqtt';
-    const MQTT_TOPIC = 'gasguard/sensor/data';
+    const MQTT_TOPIC = 'gasguard/kelompok8/device01/sensor/data';
+    const MQTT_AI_TOPIC = 'gasguard/kelompok8/device01/ai/prediction';
 
     const VALID_STATUSES = [
       'AMAN',
@@ -435,6 +456,11 @@
     const alarmStatusEl = document.getElementById('alarmStatus');
     const alarmDescriptionEl = document.getElementById('alarmDescription');
     const alarmBadgeEl = document.getElementById('alarmBadge');
+
+    // Elemen hasil klasifikasi AI
+    const aiPredictionEl = document.getElementById('aiPrediction');
+    const aiDescriptionEl = document.getElementById('aiDescription');
+    const aiBadgeEl = document.getElementById('aiBadge');
 
     const lastUpdatedEl = document.getElementById('lastUpdated');
     const topicTextEl = document.getElementById('topicText');
@@ -530,60 +556,80 @@
 
       try {
         data = JSON.parse(rawMessage.toString());
-      } catch (_) {
+      } catch (error) {
         noticeEl.className = 'notice error';
-        noticeEl.textContent =
-          'Pesan diterima, tetapi format JSON tidak valid.';
+        noticeEl.textContent = 'Format JSON MQTT tidak valid.';
+        console.error('JSON error:', error);
         return;
       }
+      // Mengambil data dari struktur JSON firmware. 
+      const filterTabung = data?.sensor_tabung?.adc_filter;
+      const filterDapur = data?.sensor_dapur?.adc_filter;
+      const statusRaw = data?.status_sistem;
 
-      if (
-        !data ||
-        typeof data !== 'object' ||
-        !validNumber(data.titik1) ||
-        !validNumber(data.titik2) ||
-        typeof data.status !== 'string'
-      ) {
-        noticeEl.className = 'notice error';
-        noticeEl.textContent =
-          'Payload tidak sesuai. Dibutuhkan field titik1, titik2, dan status.';
-        return;
-      }
-
-      const status = data.status.trim().toUpperCase();
-
+      // Validasi payload.
+      if ( !data || typeof data !== 'object' || Array.isArray(data) || !validNumber(filterTabung) || !validNumber(filterDapur) || typeof statusRaw !== 'string') {
+          noticeEl.className = 'notice error';
+          noticeEl.textContent = 'Payload sensor tidak lengkap atau tidak valid.';
+          return;
+        }
+      
+      const status = statusRaw.trim().toUpperCase();
+      
       if (!VALID_STATUSES.includes(status)) {
         noticeEl.className = 'notice error';
-        noticeEl.textContent =
-          'Status pada payload tidak dikenali: ' + status;
-        return;
+        noticeEl.textContent = 'Status sistem tidak dikenali: ' + status;
+        return
       }
 
-      // Perbarui pembacaan sensor.
-      value1El.textContent = formatADC(data.titik1);
-      value2El.textContent = formatADC(data.titik2);
+      // Memperbarui nilai sensor.
+      value1El.textContent = formatADC(filterTabung);
+      value2El.textContent = formatADC(filterDapur);
 
-      // Perbarui status sistem.
+      // Memperbarui status firmware.
       systemStatusEl.textContent = status;
       setStatusBadge(systemBadgeEl, status);
 
-      // Perbarui indikator perintah buzzer.
+      // Memperbarui indikator perintah buzzer.
       lastKnownStatus = status;
       updateAlarmIndicator(status);
 
-      // Perbarui waktu penerimaan pesan.
-      lastUpdatedEl.textContent =
-        new Date().toLocaleTimeString('id-ID', {
-          hour: '2-digit',
-          minute: '2-digit',
-          second: '2-digit'
-        });
+      // Waktu penerimaan data.
+      lastUpdatedEl.textContent = new Date().toLocaleTimeString('id-ID', {
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+      });
 
       noticeEl.className = 'notice';
-      noticeEl.textContent =
-        'Data MQTT berhasil diterima. Nilai diperbarui dari pesan terbaru.';
+      noticeEl.textContent = 'Data sensor berhasil diterima dan ditampilkan.';
     }
+    
+    // Menangani hasil prediksi AI dari MQTT
+    function handleAIPayload(rawMessage) {
+        let data;
 
+        try {
+            data = JSON.parse(rawMessage.toString());
+        } catch (error) {
+            console.error('JSON AI tidak valid:', error);
+            return;
+        }
+
+        const prediction = String(
+            data?.prediction || ''
+        ).trim().toUpperCase();
+        
+        if (!VALID_STATUSES.includes(prediction)) {
+            console.error('Prediksi AI tidak valid:', prediction);
+            return;
+        }
+        // Menampilkan hasil prediksi
+        aiPredictionEl.textContent = prediction;
+        setStatusBadge(aiBadgeEl, prediction);
+        aiDescriptionEl.textContent = 'Hasil klasifikasi menggunakan ' + (data.model || 'Decision Tree') + '. Waktu: ' + (data.timestamp || 'Tidak tersedia');
+    }
+  
     if (!window.mqtt) {
       setConnection('disconnected', 'Pustaka gagal dimuat');
 
@@ -603,26 +649,38 @@
         protocolVersion: 4
       });
 
-      client.on('connect', function () {
-        mqttConnected = true;
-        setConnection('connected', 'Broker terhubung');
+  client.on('connect', function () {
+      mqttConnected = true;
+      setConnection('connected', 'Broker terhubung');
 
-        noticeEl.className = 'notice';
-        noticeEl.textContent =
+      noticeEl.className = 'notice';
+      noticeEl.textContent =
           'Terhubung ke broker. Menunggu pesan sensor.';
 
-        client.subscribe(MQTT_TOPIC, { qos: 0 }, function (error) {
+      // Subscribe topic sensor existing
+      client.subscribe(MQTT_TOPIC, { qos: 0 }, function (error) {
           if (error) {
-            noticeEl.className = 'notice error';
-            noticeEl.textContent =
-              'Koneksi tersedia, tetapi gagal berlangganan topic MQTT.';
+              console.error('Gagal subscribe sensor:', error);
           } else {
-            noticeEl.className = 'notice';
-            noticeEl.textContent =
-              'Berlangganan topic berhasil. Menunggu data sensor.';
+              console.log(
+                  'Subscribe sensor berhasil:',
+                  MQTT_TOPIC
+              );
           }
-        });
       });
+
+      // Subscribe topic hasil AI
+      client.subscribe(MQTT_AI_TOPIC, { qos: 0 }, function (error) {
+          if (error) {
+              console.error('Gagal subscribe AI:', error);
+          } else {
+              console.log(
+                  'Subscribe AI berhasil:',
+                  MQTT_AI_TOPIC
+              );
+          }
+      });
+  });
 
       client.on('reconnect', function () {
         mqttConnected = false;
@@ -653,9 +711,13 @@
       });
 
       client.on('message', function (topic, message) {
-        if (topic === MQTT_TOPIC) {
-          handlePayload(message);
-        }
+          if (topic === MQTT_TOPIC) {
+              handlePayload(message);
+          }
+          else if (topic === MQTT_AI_TOPIC) {
+              handleAIPayload(message);
+          }
+
       });
     }
   </script>
