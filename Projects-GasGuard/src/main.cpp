@@ -64,6 +64,7 @@ const unsigned long INTERVAL_PUBLISH = 2000;
 const unsigned long INTERVAL_COBA_MQTT = 5000;
 
 bool dataFilterPertama = true;
+bool buzzerSedangAktif = false;
 
 // =====================================================
 //               FUNGSI SENSOR DAN FILTER
@@ -179,16 +180,19 @@ const char* tentukanStatusSistem() {
     }
 }
 
-// =====================================================
 //                    ALARM LOKAL
-// Menggunakan tone/noTone seperti firmware awal.
-// untuk buzzer pasif Wokwi.
 void perbaruiAlarm(const char* statusSistem) {
-    if (strcmp(statusSistem, "BAHAYA") == 0) {
+    bool alarmHarusAktif =
+        strcmp(statusSistem, "BAHAYA") == 0;
+
+    if (alarmHarusAktif && !buzzerSedangAktif) {
         tone(BUZZER_PIN, 2000);
-    } else {
+        buzzerSedangAktif = true;
+
+    } else if (!alarmHarusAktif && buzzerSedangAktif) {
         noTone(BUZZER_PIN);
         digitalWrite(BUZZER_PIN, LOW);
+        buzzerSedangAktif = false;
     }
 }
 
@@ -259,12 +263,27 @@ void kirimDataMQTT(const char* statusSistem) {
     );
     payload += "}";
 
-    bool berhasil = client.publish(MQTT_TOPIC, payload.c_str());
+    Serial.print("[MQTT] Ukuran payload: ");
+    Serial.println(payload.length());
+
+    Serial.print("[MQTT] Ukuran buffer: ");
+    Serial.println(client.getBufferSize());
+
+    bool berhasil = client.publish(
+        MQTT_TOPIC,
+        payload.c_str()
+    );
 
     Serial.println(
-        berhasil ? "\n[ MQTT: data berhasil dikirim ]\n"
-                 : "\n[ MQTT: data gagal dikirim ]\n"
+        berhasil
+            ? "\n[ MQTT: data berhasil dikirim ]\n"
+            : "\n[ MQTT: data gagal dikirim ]\n"
     );
+
+    if (!berhasil) {
+        Serial.print("[MQTT] Client state: ");
+        Serial.println(client.state());
+    }
 }
 
 // =====================================================
@@ -325,7 +344,6 @@ void setup() {
     pinMode(BUZZER_PIN, OUTPUT);
 
     digitalWrite(BUZZER_PIN, LOW);
-    noTone(BUZZER_PIN);
 
     // Isi awal buffer dengan pembacaan pertama agar median
     // tidak tercampur nilai nol saat lima sampel pertama.
@@ -342,6 +360,12 @@ void setup() {
     nilaiFilterSebelumnyaTabung = nilaiFilterTabung;
     nilaiFilterSebelumnyaDapur = nilaiFilterDapur;
 
+    if (!client.setBufferSize(512)) {
+        Serial.println("[MQTT] Gagal mengatur buffer!");
+    } else {
+        Serial.println("[MQTT] Buffer MQTT: 512 byte");
+    }
+    
     client.setServer(MQTT_SERVER, MQTT_PORT);
 
     mulaiWiFi();
