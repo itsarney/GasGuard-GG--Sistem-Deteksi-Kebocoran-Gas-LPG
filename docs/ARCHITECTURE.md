@@ -2,85 +2,102 @@
 
 ## 1. Gambaran Umum
 
-GasGuard merupakan sistem pemantauan gas LPG berbasis IoT yang menggunakan ESP32 untuk membaca dua input sensor, memproses data, dan mengaktifkan buzzer lokal saat kondisi memenuhi kriteria bahaya.
+GasGuard adalah prototipe IoT untuk memantau dua titik pembacaan, yaitu area tabung LPG dan area dapur. ESP32 membaca kedua input analog, melakukan pemrosesan data, menentukan status sistem, dan mengendalikan buzzer lokal. Data sensor dikirim ke broker MQTT HiveMQ.
 
-Data yang telah diproses dikirim melalui MQTT ke broker publik HiveMQ, kemudian ditampilkan pada dashboard web yang dapat diakses melalui HP Android.
+Pada pengembangan AI, sebuah program Python berjalan sebagai layanan terpisah. Program tersebut menerima data sensor dari MQTT, menyusun lima fitur sesuai model Decision Tree, menjalankan prediksi, lalu menerbitkan hasilnya ke topic MQTT khusus AI. Dashboard web menerima data sensor dan hasil prediksi AI secara terpisah.
+
+**Pemisahan tanggung jawab:** status dari firmware tetap menjadi dasar kendali buzzer. Prediksi Decision Tree menjadi informasi klasifikasi tambahan pada dashboard dan tidak menggantikan logika keselamatan firmware.
 
 ## 2. Diagram Arsitektur
 
-
 ```mermaid
 flowchart LR
-    subgraph W["Edge Device 1 - ESP32 di Wokwi"]
-        direction LR
-        A["Input Sensor Tabung"]
-        B["Input Sensor Dapur"]
-        C["Pembacaan ADC"]
-        D["Moving Median"]
-        E["Analisis Tren dan Keputusan Status"]
-        F["Buzzer Lokal"]
-
-        A --> C
-        B --> C
-        C --> D
-        D --> E
-        E -->|"Jika status BAHAYA"| F
+    subgraph EDGE[Simulasi perangkat IoT]
+        A[Potensiometer titik tabung] --> C[ESP32]
+        B[Potensiometer titik dapur] --> C
+        C --> D[Moving Median Filter]
+        D --> E[Analisis tren dan threshold]
+        E --> F[Status firmware]
+        E --> G[Buzzer lokal]
     end
 
-    E -->|"Publish JSON melalui MQTT TCP"| G["HiveMQ Public MQTT Broker"]
-
-    G -->|"MQTT over WebSocket"| I["Dashboard Web di Browser HP"]
-
-    J["Laptop: menjalankan Live Server"] -.->|"Wi-Fi / hotspot yang sama"| I
+    C -->|MQTT TCP 1883\nTopic sensor| H[HiveMQ Public Broker]
+    H -->|Topic sensor| I[Python integrasi_mqtt.py]
+    I --> J[Feature preparation\n5 fitur]
+    J --> K[Decision Tree\ndecision_tree_model.pkl]
+    K -->|Prediksi AI| I
+    I -->|MQTT publish\nTopic AI| H
+    H -->|MQTT over WebSocket| L[Dashboard GasGuard]
+    H -->|MQTT over WebSocket| L
 ```
 
+## 3. Alur Data
 
-## 3. Alur Kerja Sistem
+1. Dua potensiometer pada rangkaian Wokwi digunakan sebagai simulasi input analog untuk titik tabung dan titik dapur.
+2. ESP32 membaca nilai analog pada GPIO 34 dan GPIO 35.
+3. Firmware menerapkan Moving Median Filter dengan ukuran jendela lima sampel.
+4. Firmware menghitung tren perubahan hasil filter dan menentukan status AMAN, WASPADA, atau BAHAYA berdasarkan threshold serta aturan tren.
+5. Firmware mengendalikan buzzer pada GPIO 25 berdasarkan status firmware.
+6. ESP32 menerbitkan payload JSON ke HiveMQ melalui MQTT TCP port 1883.
+7. Python `integrasi_mqtt.py` berlangganan topic sensor, memvalidasi payload, mengambil nilai filter dan tren, lalu membentuk lima fitur input model.
+8. Python memanggil model `decision_tree_model.pkl` untuk menghasilkan kelas AMAN, WASPADA, atau BAHAYA.
+9. Python menyimpan catatan prediksi ke `ai_prediction_log.csv` dan menerbitkan hasilnya ke topic AI.
+10. Dashboard menerima topic sensor dan topic AI melalui MQTT over WebSocket, lalu menampilkan status firmware dan prediksi AI pada bagian yang berbeda.
 
-1. Dua input sensor gas disimulasikan menggunakan potensiometer di Wokwi.
-2. ESP32 membaca nilai ADC dari kedua input.
-3. Algoritma moving median menyaring perubahan data agar pembacaan lebih stabil.
-4. Analisis tren dan algoritma pengambilan keputusan menentukan status sistem.
-5. Buzzer lokal diaktifkan sesuai logika pada firmware.
-6. Data sensor yang sudah diproses dikirim ke broker MQTT HiveMQ.
-7. Dashboard menerima pesan MQTT dan menampilkan nilai kedua titik sensor serta status sistem secara real-time.
-
-## 4. Komponen dan Fungsinya
+## 4. Komponen dan Fungsi
 
 | Komponen | Fungsi |
 |---|---|
-| ESP32 | Membaca input sensor dan menjalankan pemrosesan data |
-| Potensiometer 1 | Simulasi input sensor di area tabung |
-| Potensiometer 2 | Simulasi input sensor di area dapur |
-| Buzzer | Memberikan alarm lokal |
-| Moving Median | Menyaring noise pada pembacaan sensor |
-| Analisis Tren | Menganalisis perubahan nilai dan menentukan status |
-| HiveMQ | Meneruskan pesan MQTT antara publisher dan subscriber |
-| Dashboard Web | Menampilkan data sensor dan status sistem pada HP Android |
+| ESP32 | Membaca input analog, menjalankan filter dan aturan status, mengendalikan buzzer, serta mengirim data MQTT |
+| Potensiometer titik tabung | Menyimulasikan input sensor pada area tabung LPG di Wokwi |
+| Potensiometer titik dapur | Menyimulasikan input sensor pada area dapur di Wokwi |
+| Moving Median | Mengolah lima sampel untuk menghasilkan nilai filter |
+| Threshold dan analisis tren | Menentukan status firmware |
+| Buzzer | Memberikan alarm lokal berdasarkan status firmware |
+| HiveMQ | Broker publik yang meneruskan pesan MQTT |
+| Python + Paho-MQTT | Menerima data sensor, mengolah fitur, menjalankan model, dan menerbitkan prediksi |
+| Decision Tree | Mengklasifikasikan lima fitur menjadi AMAN, WASPADA, atau BAHAYA |
+| Dashboard web | Menampilkan nilai sensor, status firmware, indikator alarm, dan hasil AI |
 
-## 5. Komunikasi MQTT
+## 5. Konfigurasi Komunikasi MQTT
 
-ESP32 mengirim data menggunakan MQTT TCP melalui port 1883. Dashboard browser menerima data melalui MQTT over WebSocket.
+| Pengaturan | Nilai |
+|---|---|
+| Broker | `broker.hivemq.com` |
+| MQTT TCP ESP32/Python | `1883` |
+| MQTT WebSocket dashboard | `ws://broker.hivemq.com:8000/mqtt` |
+| Topic sensor | `gasguard/kelompok8/device01/sensor/data` |
+| Topic prediksi AI | `gasguard/kelompok8/device01/ai/prediction` |
+| Publisher topic sensor | ESP32 |
+| Subscriber topic sensor | Python dan dashboard |
+| Publisher topic AI | Python |
+| Subscriber topic AI | Dashboard |
 
-Konfigurasi yang digunakan:
+Topic AI merupakan topic tambahan yang digunakan oleh program integrasi. Topic tersebut tidak menggantikan topic sensor firmware.
 
-- Broker: `broker.hivemq.com`
-- Topic: `gasguard/sensor/data`
-- Publisher: ESP32 di Wokwi
-- Subscriber: Dashboard web
-- Field JSON: `titik1`, `titik2`, dan `status`
+## 6. Pemrosesan dan Peran AI
 
-## 6. Jaringan dan Edge Device
+Model Decision Tree menerima lima fitur dengan nama dan urutan berikut:
 
-ESP32 dijalankan melalui simulasi Wokwi, sedangkan dashboard dibuka pada HP Android menggunakan browser.
+1. `filter_tabung`
+2. `filter_dapur`
+3. `selisih_sensor`
+4. `tren_tabung`
+5. `tren_dapur`
 
-Untuk demonstrasi, laptop yang menjalankan dashboard dan HP Android dihubungkan ke Wi-Fi atau hotspot yang sama. HP mengakses halaman dashboard melalui alamat IP lokal laptop.
+Python mengambil `adc_filter` dan `tren` dari objek `sensor_tabung` serta `sensor_dapur` pada payload ESP32. Fitur `selisih_sensor` dihitung ulang oleh Python menggunakan rumus:
 
-Pengiriman data sensor tetap melewati broker MQTT melalui internet. Dengan demikian, jaringan lokal digunakan untuk mengakses halaman dashboard, sedangkan MQTT menjadi jalur pertukaran data sensor.
+`filter_tabung - filter_dapur`
 
-## 7. Batasan Sistem
+Perhitungan ulang diperlukan karena field `selisih_sensor` yang dikirim firmware menggunakan nilai absolut, sedangkan feature engineering dataset menggunakan selisih bertanda. Nilai `selisih_sensor` dari payload firmware tidak digunakan sebagai input model.
 
-- Input sensor masih berupa simulasi potensiometer di Wokwi.
-- Nilai ADC bukan pengukuran konsentrasi gas LPG secara langsung.
-- Ambang batas dan algoritma perlu diuji sebelum digunakan pada perangkat fisik.
-- Simulasi belum membuktikan akurasi deteksi kebocoran gas dalam kondisi nyata.
+## 7. Lingkungan Dashboard
+
+Dashboard dapat dijalankan di laptop menggunakan Live Server atau server HTTP lokal. Untuk penggunaan di HP, file dashboard dapat disajikan dari HP menggunakan Termux dan dibuka melalui browser pada HP yang sama. Dalam kedua cara tersebut, dashboard tetap menerima data dari HiveMQ melalui internet.
+
+## 8. Batasan Sistem
+
+- Rangkaian Wokwi pada proyek ini menggunakan potensiometer sebagai simulasi input analog; pengujian tersebut bukan pengujian sensor MQ-6 fisik.
+- Nilai ADC tidak boleh disebut sebagai konsentrasi LPG dalam ppm tanpa sensor, kalibrasi, dan metode konversi yang sesuai.
+- Prediksi AI merupakan keluaran model yang dilatih menggunakan dataset proyek. Prediksi AI tidak mengambil alih kendali buzzer.
+- Dataset simulasi dan pengujian Wokwi belum membuktikan akurasi deteksi kebocoran LPG pada kondisi nyata.
