@@ -18,7 +18,7 @@ WiFiClient espClient;
 PubSubClient client(espClient);
 
 // =====================================================
-// PIN DAN AMBANG SENSOR (konsisten dengan firmware awal)
+//                 PIN DAN AMBANG SENSOR
 // =====================================================
 const int SENSOR_TABUNG = 34;
 const int SENSOR_DAPUR = 35;
@@ -180,7 +180,9 @@ const char* tentukanStatusSistem() {
     }
 }
 
-//                    ALARM LOKAL
+// =====================================================
+//                 ALARM LOKAL (BUZZER)
+// =====================================================
 void perbaruiAlarm(const char* statusSistem) {
     bool alarmHarusAktif =
         strcmp(statusSistem, "BAHAYA") == 0;
